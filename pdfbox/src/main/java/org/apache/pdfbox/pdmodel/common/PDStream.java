@@ -16,6 +16,7 @@
  */
 package org.apache.pdfbox.pdmodel.common;
 
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -25,6 +26,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -36,6 +39,7 @@ import org.apache.pdfbox.cos.COSInputStream;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.cos.COSNull;
 import org.apache.pdfbox.cos.COSStream;
+import org.apache.pdfbox.filter.BIFilter;
 import org.apache.pdfbox.filter.DecodeOptions;
 import org.apache.pdfbox.filter.Filter;
 import org.apache.pdfbox.filter.FilterFactory;
@@ -194,6 +198,15 @@ public class PDStream implements COSObjectable
     public COSInputStream createInputStream(DecodeOptions options) throws IOException
     {
         return stream.createInputStream(options);
+    }
+    
+    public boolean canReturnBI() throws IOException {
+        return stream.canReturnBI();
+    }
+    
+    public BufferedImage decodeToBI(DecodeOptions options) throws IOException
+    {
+        return stream.decodeToBI(options);
     }
 
     /**

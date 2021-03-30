@@ -26,10 +26,13 @@ import java.awt.image.Raster;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.atomic.AtomicReference;
+
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
+
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.graphics.color.PDJPXColorSpace;
@@ -49,7 +52,7 @@ import org.apache.pdfbox.pdmodel.graphics.color.PDJPXColorSpace;
  * @author John Hewson
  * @author Timo Boehme
  */
-public final class JPXFilter extends Filter
+public final class JPXFilter extends BIFilter
 {
     /**
      * {@inheritDoc}
@@ -188,5 +191,16 @@ public final class JPXFilter extends Filter
             throws IOException
     {
         throw new UnsupportedOperationException("JPX encoding not implemented");
+    }
+
+    @Override
+    public DecodeResult decode(InputStream encoded, AtomicReference<BufferedImage> outImage,
+            COSDictionary parameters, int index, DecodeOptions options) throws IOException
+    {
+        DecodeResult result = new DecodeResult(new COSDictionary());
+        result.getParameters().addAll(parameters);
+        BufferedImage image = readJPX(encoded, options, result);
+        outImage.set(image);
+        return result;
     }
 }

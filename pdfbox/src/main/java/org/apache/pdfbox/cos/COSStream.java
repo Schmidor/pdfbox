@@ -16,6 +16,7 @@
  */
 package org.apache.pdfbox.cos;
 
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -27,9 +28,12 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.pdfbox.filter.BIFilter;
 import org.apache.pdfbox.filter.DecodeOptions;
 import org.apache.pdfbox.filter.Filter;
 import org.apache.pdfbox.filter.FilterFactory;
@@ -173,6 +177,26 @@ public class COSStream extends COSDictionary implements Closeable
     {
         InputStream input = createRawInputStream();
         return COSInputStream.create(getFilterList(), this, input, options);
+    }
+    
+    public boolean canReturnBI() throws IOException
+    {
+        if (getFilterList().size() == 1 && getFilterList().get(0) instanceof BIFilter)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    public BufferedImage decodeToBI( DecodeOptions options)
+            throws IOException
+    {
+        BIFilter filter = (BIFilter) getFilterList().get(0);
+        InputStream input = createRawInputStream();
+
+        AtomicReference<BufferedImage> outImage = new AtomicReference<>();
+        filter.decode(input, outImage, this, 0, options);
+        return outImage.get();
     }
 
     /**

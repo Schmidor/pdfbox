@@ -349,6 +349,15 @@ public abstract class PDColorSpace implements COSObjectable
         op.filter(src, dest);
         return dest;
     }
+    
+    public BufferedImage toRGBImage(BufferedImage src)
+    {
+        BufferedImage dest = new BufferedImage(src.getWidth(), src.getHeight(),
+                                               BufferedImage.TYPE_INT_RGB);
+        ColorConvertOp op = new ColorConvertOp(null);
+        op.filter(src, dest);
+        return dest;
+    }
 
     @Override
     public COSBase getCOSObject()

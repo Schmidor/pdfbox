@@ -748,6 +748,16 @@ public final class PDImageXObject extends PDXObject implements PDImage
     {
         return getStream().createInputStream(options);
     }
+    
+    @Override
+    public boolean canDecodeToBI() throws IOException {
+        return getStream().canReturnBI();
+    }
+    
+    @Override
+    public BufferedImage decodeToBI(DecodeOptions options) throws IOException {
+        return getStream().decodeToBI(options);
+    }
 
     @Override
     public InputStream createInputStream(List<String> stopFilters) throws IOException

@@ -401,4 +401,16 @@ public final class PDInlineImage implements PDImage
         // JPX and JBIG2 don't exist for inline images
         return "png";        
     }
+
+    @Override
+    public boolean canDecodeToBI() throws IOException
+    {
+        return false;
+    }
+
+    @Override
+    public BufferedImage decodeToBI(DecodeOptions options) throws IOException
+    {
+        return null;
+    }
 }

@@ -226,4 +226,8 @@ public interface PDImage extends COSObjectable
      */
     @Override
     COSDictionary getCOSObject();
+
+    boolean canDecodeToBI() throws IOException;
+
+    BufferedImage decodeToBI(DecodeOptions options) throws IOException;
 }

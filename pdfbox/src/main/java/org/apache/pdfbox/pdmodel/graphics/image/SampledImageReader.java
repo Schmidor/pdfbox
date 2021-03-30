@@ -21,6 +21,7 @@ import java.awt.Paint;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorConvertOp;
 import java.awt.image.DataBuffer;
 import java.awt.image.DataBufferByte;
 import java.awt.image.Raster;
@@ -367,9 +368,23 @@ final class SampledImageReader
         BufferedImage bim = null;
         WritableRaster raster;
         byte[] output;
-
+//TODO
         DecodeOptions options = new DecodeOptions(currentSubsampling);
         options.setSourceRegion(clipped);
+        
+        if(pdImage.canDecodeToBI()) {
+            BufferedImage image = pdImage.decodeToBI(options);
+            if (colorSpace instanceof PDDeviceGray)
+            {
+                bim = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
+                ColorConvertOp op = new ColorConvertOp(null);
+                op.filter(image, bim);
+                return bim;
+            } else {
+                return colorSpace.toRGBImage(image);
+            }
+        }
+        
         // read bit stream
         try (InputStream iis = pdImage.createInputStream(options))
         {
@@ -484,6 +499,11 @@ final class SampledImageReader
         int currentSubsampling = subsampling;
         DecodeOptions options = new DecodeOptions(currentSubsampling);
         options.setSourceRegion(clipped);
+        if (pdImage.canDecodeToBI())
+        {
+            BufferedImage image = pdImage.decodeToBI(options);
+            return pdImage.getColorSpace().toRGBImage(image);
+        }
         try (InputStream input = pdImage.createInputStream(options))
         {
             final int inputWidth;
@@ -581,6 +601,10 @@ final class SampledImageReader
 
         DecodeOptions options = new DecodeOptions(currentSubsampling);
         options.setSourceRegion(clipped);
+        if(pdImage.canDecodeToBI()) {
+            BufferedImage image = pdImage.decodeToBI(options);
+            return colorSpace.toRGBImage(image);
+        }
         // read bit stream
         try (ImageInputStream iis = new MemoryCacheImageInputStream(pdImage.createInputStream(options)))
         {

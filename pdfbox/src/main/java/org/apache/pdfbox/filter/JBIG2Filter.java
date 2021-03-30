@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.SequenceInputStream;
+import java.util.concurrent.atomic.AtomicReference;
+
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
@@ -43,7 +45,7 @@ import org.apache.pdfbox.cos.COSStream;
  *
  * @author Timo Boehme
  */
-final class JBIG2Filter extends Filter
+final class JBIG2Filter extends BIFilter
 {
     private static final Log LOG = LogFactory.getLog(JBIG2Filter.class);
 
@@ -60,9 +62,8 @@ final class JBIG2Filter extends Filter
         }
     }
 
-    @Override
-    public DecodeResult decode(InputStream encoded, OutputStream decoded, COSDictionary
-            parameters, int index, DecodeOptions options) throws IOException
+    private BufferedImage readImage(InputStream encoded, COSDictionary parameters, int index,
+            DecodeOptions options) throws IOException
     {
         ImageReader reader = findImageReader("JBIG2", "jbig2-imageio is not installed");
         if (reader.getClass().getName().contains("levigo"))
@@ -120,19 +121,28 @@ final class JBIG2Filter extends Filter
                 image = packedImage;
             }
 
-            DataBuffer dBuf = image.getData().getDataBuffer();
-            if (dBuf.getDataType() == DataBuffer.TYPE_BYTE)
-            {
-                decoded.write(((DataBufferByte) dBuf).getData());
-            }
-            else
-            {
-                throw new IOException("Unexpected image buffer type");
-            }
+            return image;
         }
         finally
         {
             reader.dispose();
+        }
+    }
+
+    @Override
+    public DecodeResult decode(InputStream encoded, OutputStream decoded, COSDictionary parameters,
+            int index, DecodeOptions options) throws IOException
+    {
+        BufferedImage image = readImage(encoded, parameters, index, options);
+
+        DataBuffer dBuf = image.getData().getDataBuffer();
+        if (dBuf.getDataType() == DataBuffer.TYPE_BYTE)
+        {
+            decoded.write(((DataBufferByte) dBuf).getData());
+        }
+        else
+        {
+            throw new IOException("Unexpected image buffer type");
         }
 
         return new DecodeResult(parameters);
@@ -150,5 +160,15 @@ final class JBIG2Filter extends Filter
             throws IOException
     {
         throw new UnsupportedOperationException("JBIG2 encoding not implemented");
+    }
+
+
+    @Override
+    public DecodeResult decode(InputStream encoded, AtomicReference<BufferedImage> outImage,
+            COSDictionary parameters, int index, DecodeOptions options) throws IOException
+    {
+        BufferedImage image = readImage(encoded, parameters, index, options);
+        outImage.set(image);
+        return new DecodeResult(parameters);
     }
 }
