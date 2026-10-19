@@ -37,6 +37,8 @@ public class CMapParser
 {
     private static final String MARK_END_OF_DICTIONARY = ">>";
     private static final String MARK_END_OF_ARRAY = "]";
+    // Avoid expanding unusually large malformed CID ranges into individual Unicode mappings.
+    private static final int MAX_CID_RANGE_TO_UNICODE = 65536;
 
     private final byte[] tokenParserByteBuffer = new byte[512];
 
@@ -85,6 +87,26 @@ public class CMapParser
      */
     public CMap parse(RandomAccessRead randomAccessRead) throws IOException
     {
+        return parse(randomAccessRead, false);
+    }
+
+    /**
+     * Parses a ToUnicode CMap. Although ToUnicode CMaps must use bfchar/bfrange Unicode
+     * destinations, some PDFs incorrectly use cidchar/cidrange numeric destinations. For this
+     * parsing mode, those numbers are also treated as Unicode code points.
+     *
+     * @param randomAccessRead the source of the CMap to be parsed.
+     * @return the parsed ToUnicode CMap, never null.
+     * @throws IOException If there is an error parsing the data.
+     */
+    public CMap parseToUnicode(RandomAccessRead randomAccessRead) throws IOException
+    {
+        return parse(randomAccessRead, true);
+    }
+
+    private CMap parse(RandomAccessRead randomAccessRead, boolean parseCIDMappingsAsUnicode)
+            throws IOException
+    {
         CMap result = new CMap();
         Object previousToken = null;
         Object token = parseNextToken(randomAccessRead);
@@ -101,7 +123,7 @@ public class CMapParser
 
                 if (op.op.equals("usecmap") && previousToken instanceof LiteralName)
                 {
-                    parseUsecmap((LiteralName) previousToken, result);
+                    parseUsecmap((LiteralName) previousToken, result, parseCIDMappingsAsUnicode);
                 }
                 else if (previousToken instanceof Number)
                 {
@@ -119,11 +141,13 @@ public class CMapParser
                     }
                     else if (op.op.equals("begincidchar"))
                     {
-                        parseBegincidchar((Number) previousToken, randomAccessRead, result);
+                        parseBegincidchar((Number) previousToken, randomAccessRead, result,
+                                parseCIDMappingsAsUnicode);
                     }
                     else if (op.op.equals("begincidrange") && previousToken instanceof Integer)
                     {
-                        parseBegincidrange((Integer) previousToken, randomAccessRead, result);
+                        parseBegincidrange((Integer) previousToken, randomAccessRead, result,
+                                parseCIDMappingsAsUnicode);
                     }
                 }
             }
@@ -137,11 +161,12 @@ public class CMapParser
         return result;
     }
 
-    private void parseUsecmap(LiteralName useCmapName, CMap result) throws IOException
+    private void parseUsecmap(LiteralName useCmapName, CMap result,
+            boolean parseCIDMappingsAsUnicode) throws IOException
     {
         try (RandomAccessRead randomAccessRead = getExternalCMap(useCmapName.name))
         {
-            CMap useCMap = parse(randomAccessRead);
+            CMap useCMap = parse(randomAccessRead, parseCIDMappingsAsUnicode);
             result.useCmap(useCMap);
         }
     }
@@ -306,7 +331,7 @@ public class CMapParser
     }
 
     private void parseBegincidrange(int numberOfLines, RandomAccessRead randomAccessRead,
-            CMap result) throws IOException
+            CMap result, boolean parseCIDMappingsAsUnicode) throws IOException
     {
         for (int n = 0; n < numberOfLines; n++)
         {
@@ -334,6 +359,13 @@ public class CMapParser
                 {
                     result.addCIDRange(startCode, endCode, mappedCode);
                 }
+                if (parseCIDMappingsAsUnicode)
+                {
+                    // A ToUnicode CMap should use bfrange with UTF-16BE strings here. Recover
+                    // malformed files that use cidrange by treating its numeric CID destination
+                    // as the first Unicode code point, incrementing it across the source range.
+                    addUnicodeMappingsFromCIDRange(startCode, endCode, mappedCode, result);
+                }
             }
             else
             {
@@ -344,7 +376,7 @@ public class CMapParser
     }
 
     private void parseBegincidchar(Number cosCount, RandomAccessRead randomAccessRead,
-            CMap result) throws IOException
+            CMap result, boolean parseCIDMappingsAsUnicode) throws IOException
     {
         for (int j = 0; j < cosCount.intValue(); j++)
         {
@@ -361,6 +393,42 @@ public class CMapParser
             byte[] inputCode = (byte[]) nextToken;
             int mappedCID = parseInteger(randomAccessRead);
             result.addCIDMapping(inputCode, mappedCID);
+            if (parseCIDMappingsAsUnicode)
+            {
+                // Recover malformed ToUnicode CMaps that use a numeric CID destination instead
+                // of a bfchar Unicode string.
+                addUnicodeMapping(inputCode, mappedCID, result);
+            }
+        }
+    }
+
+    private void addUnicodeMappingsFromCIDRange(byte[] startCode, byte[] endCode, int startUnicode,
+            CMap result)
+    {
+        int start = CMap.toInt(startCode);
+        int end = CMap.toInt(endCode);
+        if (end < start || (long) end - start + 1 > MAX_CID_RANGE_TO_UNICODE)
+        {
+            // Keep the CID mapping, but avoid expanding an invalid or excessively large range
+            // into individual Unicode entries.
+            return;
+        }
+        byte[] code = startCode.clone();
+        for (long unicode = startUnicode, i = 0; i <= (long) end - start; i++, unicode++)
+        {
+            addUnicodeMapping(code, (int) unicode, result);
+            if (i < (long) end - start)
+            {
+                increment(code, code.length - 1, true);
+            }
+        }
+    }
+
+    private void addUnicodeMapping(byte[] code, int unicode, CMap result)
+    {
+        if (Character.isValidCodePoint(unicode))
+        {
+            result.addCharMapping(code, new String(Character.toChars(unicode)));
         }
     }
 

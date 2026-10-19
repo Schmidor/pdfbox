@@ -73,4 +73,21 @@ final class CMapManager
         }
         return targetCmap;
     }
+
+    /**
+     * Parse the given ToUnicode CMap, accepting CID mapping operators as Unicode mappings.
+     *
+     * @param randomAccessRead the source of the CMap to be read
+     * @return the parsed CMap
+     * @throws IOException if the CMap cannot be parsed
+     */
+    public static CMap parseToUnicodeCMap(RandomAccessRead randomAccessRead) throws IOException
+    {
+        CMap targetCmap = null;
+        if (randomAccessRead != null)
+        {
+            targetCmap = new CMapParser().parseToUnicode(randomAccessRead);
+        }
+        return targetCmap;
+    }
 }

@@ -140,7 +140,7 @@ public abstract class PDFont implements COSObjectable, PDFontLike
         CMap cmap = null;
         try
         {
-            cmap = readCMap(toUnicode);
+            cmap = readCMap(toUnicode, true);
             if (cmap != null && !cmap.hasUnicodeMappings())
             {
                 String name = getName();
@@ -206,6 +206,11 @@ public abstract class PDFont implements COSObjectable, PDFontLike
      */
     protected final CMap readCMap(COSBase base) throws IOException
     {
+        return readCMap(base, false);
+    }
+
+    private CMap readCMap(COSBase base, boolean toUnicode) throws IOException
+    {
         if (base instanceof COSName)
         {
             // predefined CMap
@@ -217,7 +222,8 @@ public abstract class PDFont implements COSObjectable, PDFontLike
             // embedded CMap
             try (RandomAccessRead input = ((COSStream) base).createView())
             {
-                return CMapManager.parseCMap(input);
+                return toUnicode ? CMapManager.parseToUnicodeCMap(input)
+                        : CMapManager.parseCMap(input);
             }
         }
         else
